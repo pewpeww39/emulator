@@ -1,81 +1,110 @@
-# def add_device(device):
-#     import pandas as pd
-#     import numpy as np
-    
-#     #calling .csv file
-#     df=pd.read_csv('Fake_weibul.csv')   #load .csv file
-#     x=df['Fluence']           #x=column A
-#     Fluence=np.array(x)
-#     np.max(x)
-    
-#     x0=df['LET']        #x=column b
-#     LET=np.array(x0)
-    
-#     x00=df['XS']         #x00=column C, label times
-#     x00
-#     XS=np.array(x00)
-#     np.max(XS)
-#     XS
+"""
+LABVIEW uses functions to call the python script (MUST BE SET UP LIKE THIS).
+It is going to export the LET and the Name (from the add device feature) in 
+order to more efficiently describe the device.
 
-def LV2PY (LET) :
+"""
 
+
+def LV2PY (LET, Name) :
+# %%
     #import matplotlib.pyplot as plt
     #from matplotlib.backends.backend_agg import FigureCanvasAgg
     #from matplotlib.figure import Figure
-    #import cvlib as cv
-    #import sys
-    #import cv2
-    #plt.ioff()
     import numpy as np
     import scipy.stats as stats
     import pandas as pd
+    #import csv
     
     #plt.pyplot.ioff()
+    # %%
+    """
+    The name is imported as a string and the .csv is added to the Name variable
+    and used to import the .csv file containing the data for the test.
+       
+    Then arrays are created to organize the data by columns 
+    """
+    Name = str(Name) +'.csv'        #a file compatible string for the imported name 
+    print(str(Name))
+
+    results = pd.read_csv(Name)     #read .csv file
+    type(results)
+    data=np.array(results[0:113])   #creating array from .csv file
+    weib_array=data[0:113, :2]      #Rows=113   first 2 colums
+    XS=(data[0:113, 0])             #Rows=113   first column
+    Eff_LET=data[0:113, 1]          #rows=113   second column
+    limiting_XS=(data[:1 , 3])      #row=1      Third column    
+    onset_LET=data[:1 , 4]          #row=1      Fourth column
+    width=data[:1,5]                #row=1      Fifth column
+    shape=data[:1, 6]               #row=1      Sixth column
     
+    LETT=float(LET)
+    print(LETT)
+    print (weib_array)
     
-    # Name = str(Name) +'.csv'
-    # print(str(Name))
+    """
+                                (work in progress)
+    This is where I'm trying to extract the cross-section values corresponding 
+    to the LET. 
     
-    #     #calling .csv file
-    # df=pd.read_csv(str(Name))   #load .csv file
-    # x=df['LET']           #x=column A
-    # LET=np.array(x)
-    # XS=np.max(x)
+    Once the data is "sorted" for the choosen LET we can use the sub-array to 
+    find the Standard Deviation.
     
-    # df=pd.read_csv(str(Name))   #load .csv file
-    # x0=df['XS']           #x0=column B
-    # XS=np.array(x0)
-    # np.max(x0)
-    
-    # df=pd.read_csv(Name + '.csv')   #load .csv file
-    # x00=df['Weibull_3']           #x=column C
-    # Weibull3=np.array(x00)
-    # np.max(x00)
-    
-    # df=pd.read_csv(Name + '.csv')   #load .csv file
-    # x000=df['Weibull_4']           #x=column D
-    # Weibull4=np.array(x000)
-    # np.max(x000)
-    
+    Example: 
+            If the exported LET from LABVIEW = the LET imported from the data,
+            give the XS for the ordered pair.
+            
+            for the values in column[0] find the standard deviation using
+            numpy.std
+            
+            
+            
+    """
+    print(LET)
+    x2=[]
+    with np.nditer(weib_array, flags=['multi_index'], op_flags=['writeonly']) as it:
+        for x in it:
+            if x == LET:
+                x2=[it.multi_index[0],it.multi_index[1]]
+                # x2= weib_array[x1]
+                # x1 = weib_array[x2]
+                print("<%s>" % ([x2]), end='\n ')
+                
+            
+
+    # %%
+    """
+         The Weibull equation for the expected average value of the cross-section VS. LET
+         Will use this value as the mean of the Weibull distribution.  
+         
+         
+    """
+
     def weibull(x, A, B, W, S):
-        g = -1*((x-B/W))**S
-        h = np.exp(g)
-        i = 1-h
-        Weib=A*i
-        return (Weib)
+        return (A*(1 - np.exp(-1*((np.log(x) - B)/W)**S)))
     
-    vecWeibull = np.vectorize(weibull)
+    # vecWeibull = np.vectorize(weibull)
+
+    # print(limiting_XS)
     
-    importedLET=LET
-    a = 1/importedLET
-    b = 0.5
-    w = 20
-    s = 1
+    importedLET = LET
+    XS_avg = weibull(importedLET,limiting_XS,onset_LET,width,shape)
     
-    #X = np.arange(0.1,30,.1)
-    X=1
-    YExac = weibull(X,a,b,w,s)
+    #%%
+    """
+    finding the sample error gives us the std of the mean of sub-arrays
     
+    This is where the data sets for points not tested for will be created based
+    off the mean and standard deviations (std).
+    
+    after selecting the data set for the exported LET from labview and the XS,
+    we can use a random number generator(RNG) to determine what our probability is.
+    
+    next compare probability of RNG to probability of normal distribution to 
+    select the XS to be exported to LABVIEW
+    
+    """
+
     #Offset = 0.01
     
     # A = stats.norm.rvs(loc=a,scale=a*Offset, size = len(X))
@@ -102,6 +131,6 @@ def LV2PY (LET) :
     # plt.plot(X, YExac, color = 'red', label = 'Exact')
     # plt.legend()
     
-    return YExac
+    return XS_avg
 
 
